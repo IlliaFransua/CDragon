@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download File Example</title>
+</head>
+<body>
+    <h1>Скачать видео с Билли Айлиш</h1>
+    <button id="downloadButton">Загрузить Беляш</button>
+
+    <script>
+        document.getElementById('downloadButton').addEventListener('click', function() {
+        // Указываем URL файла, который нужно скачать
+        const fileUrl = '/path/to/your/video.mp4'; // Укажите реальный путь к вашему видео
+
+        fetch(fileUrl)
+            .then(response => {
+                if (response.ok) {
+                    return response.blob(); // Получаем файл как Blob
+                }
+                throw new Error('Network response was not ok.');
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob); // Создаем URL для Blob
+                const a = document.createElement('a'); // Создаем ссылку
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'video.mp4'; // Имя файла, который будет загружен
+                document.body.appendChild(a);
+                a.click(); // Имитируем клик на ссылке для скачивания
+                window.URL.revokeObjectURL(url); // Освобождаем память
+
+                // window.close();
+            })
+            .catch(error => console.error('Error downloading the file:', error));
+    });
+
+    </script>
+</body>
+</html>

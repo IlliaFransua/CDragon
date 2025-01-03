@@ -1,0 +1,107 @@
+.sp-wrapper > * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+}
+
+.sp-wrapper {
+  width: 100%;
+}
+
+.sp {
+  /* border: 1px solid #ddd; */
+  width: 100%;
+  /* max-height: 100vh; */
+  overflow-y: auto;
+}
+
+.sp-article-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+.sp-article-preview {
+  width: 200px;
+  height: auto;
+  border-radius: 5px;
+  object-fit: cover;
+  margin-right: 15px;
+  object-position: center;
+}
+
+.sp-article-info {
+  width: 100%;
+
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sp-article-info > *:not(:last-child) {
+  margin-right: 15px;
+}
+
+.sp-article-title {
+  width: 65%;
+  font-size: 16px;
+  margin: 0 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: justify;
+}
+
+.sp-article-buttons {
+  display: flex;
+  gap: 8px;
+  height: 100%;
+  width: 42%;
+  margin-right: 8px;
+}
+
+.sp-article-buttons-row {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.sp-btn {
+  width: 100%;
+  padding: 5px 10px;
+  font-size: 14px;
+  margin: 5px;
+  cursor: pointer;
+  border: none;
+  border-radius: 4px;
+}
+
+.sp-edit-btn {
+  background-color: #4caf50;
+  color: white;
+}
+
+.sp-archive-btn {
+  background-color: #ff9800;
+  color: white;
+}
+
+.sp-delete-btn {
+  background-color: #f44336;
+  color: white;
+}
+
+.sp-public-btn {
+  background-color: #3695f4;
+  color: white;
+}
+
+.sp-btn:hover {
+  opacity: 0.8;
+}

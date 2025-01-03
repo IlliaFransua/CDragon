@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация</title>
+</head>
+<body>
+
+<form id="registerForm">
+    <label for="username">Username:</label>
+    <input type="text" id="username" name="username"><br><br>
+    <label for="password">Password:</label>
+    <input type="password" id="password" name="password"><br><br>
+    <button type="submit">Register</button>
+</form>
+
+<script>
+    document.getElementById('registerForm').addEventListener('submit', async function(event) {
+        event.preventDefault();  // Останавливаем стандартную отправку формы
+
+        let username = document.getElementById('username').value;
+        let password = document.getElementById('password').value;
+
+        fetch('/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, password }),
+        })
+        .then(response => {
+            if (response.redirected) {
+                window.location.href = response.url; // Перенаправление, если ответ был с Location
+            } else if (response.ok) {
+                // Обработка успешного ответа без перенаправления
+            } else {
+                // Обработка ошибок
+            }
+        })
+        .catch(error => {
+            console.error('Ошибка:', error);
+        });
+    });
+</script>
+
+</body>
+</html>

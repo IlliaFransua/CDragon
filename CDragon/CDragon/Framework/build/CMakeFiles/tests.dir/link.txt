@@ -1,0 +1,1 @@
+/usr/bin/clang++ -g -arch arm64 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX14.5.sdk -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/tests.dir/tests/http_request.cpp.o -o tests  lib/libgtest.a lib/libgtest_main.a libFramework.a lib/libgtest.a

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Загрузка файла</title>
+</head>
+<body>
+    <h1>Загрузите файл</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" id="fileInput" multiple>
+        <button type="submit">Upload File</button>
+    </form>
+
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Предотвращаем перезагрузку страницы
+        
+            let formData = new FormData();
+            let fileInput = document.getElementById('fileInput');
+
+            for (let i = 0; i < fileInput.files.length; ++i) {
+                formData.append('files', fileInput.files[i]); // "files" - ключ для массива файлов
+            }
+        
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => console.log(data))
+            .catch(error => console.error('Error:', error));
+        });
+        </script>
+        
+</body>
+</html>
