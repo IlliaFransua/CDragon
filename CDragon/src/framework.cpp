@@ -6,14 +6,15 @@
 #include "routes.h"
 
 void Framework::run() {
-    HttpServer server;
+  HttpServer server;
 
-    Router router;
-    setupRoutes(router);
+  Router router;
+  setupRoutes(router);
 
-    server.handleRequest = [&router](HttpRequest& request, HttpResponse& response) {
-        router.handleRequest(request, response);
-    };
+  server.handleRequest = [&router](HttpRequest &request,
+                                   HttpResponse &response) {
+    router.handleRequest(request, response);
+  };
 
-    server.start();
+  server.start();
 }

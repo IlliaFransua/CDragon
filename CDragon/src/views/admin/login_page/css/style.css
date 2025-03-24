@@ -1,0 +1,141 @@
+* {
+  margin: 0;
+  padding: 0;
+}
+
+@import url(https://fonts.googleapis.com/css?family=Roboto:400,300,500);
+*,
+*:after,
+*:before {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background: #1a1f25;
+  font-family: "Roboto", sans-serif;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+}
+
+.clear {
+  clear: both;
+}
+
+#man-people-user,
+#lock-locker {
+  fill: white;
+}
+
+.wrapper {
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  margin: 12% auto;
+}
+
+form {
+  position: relative;
+}
+
+.clear {
+  clear: both;
+}
+
+.sign-in {
+  float: left;
+  color: white;
+  font-size: 1.3em;
+  margin-bottom: 5px;
+}
+
+.lock {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  margin-top: 10px;
+  padding: 7px;
+  left: 5px;
+}
+.lock::after {
+  content: "";
+  width: 1px;
+  height: 30px;
+  position: absolute;
+  background: #22272d;
+  top: 0px;
+  left: 100%;
+}
+
+.user {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  margin-top: 10px;
+  padding: 7px;
+  padding-bottom: 10px;
+  left: 5px;
+}
+.user::after {
+  content: "";
+  width: 1px;
+  height: 30px;
+  position: absolute;
+  background: #22272d;
+  top: 0px;
+  left: 100%;
+}
+
+input {
+  width: 100%;
+  padding: 5px;
+  height: 40px;
+  border-radius: 3px;
+  margin: 5px 0;
+  outline: none;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus {
+  border: 1px solid white;
+  box-shadow: none;
+}
+
+.user-input:focus .user {
+  background: white !important;
+}
+
+input[type="text"] {
+  background: transparent;
+  border: 2px solid #22272d;
+  padding-left: 45px;
+  color: #e6b333;
+}
+
+input[type="password"] {
+  background: transparent;
+  border: 2px solid #22272d;
+  padding-left: 45px;
+  color: #e6b333;
+}
+
+input[type="submit"] {
+  background: #e6b333;
+  border: none;
+  color: white;
+  text-align: center;
+  font-size: 0.8em;
+  cursor: pointer;
+}
+
+input[type="radio"] {
+  display: none;
+}
+
+.radio-yes:checked ~ .switch-selection {
+  margin-left: 25px !important;
+}

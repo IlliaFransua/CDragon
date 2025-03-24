@@ -2,24 +2,26 @@
 #define ROUTES_H
 
 #include "router.h"
-#include <iostream>
-#include <string>
 #include <fstream>
+#include <iostream>
 #include <sstream>
+#include <string>
 
 using std::string, std::ifstream, std::stringstream;
 
-void setupRoutes(Router& router);
+void setupRoutes(Router &router);
 
-inline string loadFileContent(const string& filePath) {
-    ifstream file(filePath);
-    if (!file.is_open()) {
-        return "";
-    }
+inline string loadFileContent(const string &filePath) {
+  ifstream file(filePath);
+  if (!file.is_open()) {
+    return "";
+  }
 
-    stringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
+  stringstream buffer;
+  buffer << file.rdbuf();
+
+  file.close();
+  return buffer.str();
 }
 
 #endif // ROUTES_H
