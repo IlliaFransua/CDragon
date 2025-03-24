@@ -1,2 +1,0 @@
-/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar qc libFramework.a CMakeFiles/Framework.dir/src/http/http_request.cpp.o CMakeFiles/Framework.dir/src/http/http_response.cpp.o CMakeFiles/Framework.dir/src/http/http_server.cpp.o CMakeFiles/Framework.dir/src/router/router.cpp.o CMakeFiles/Framework.dir/src/router/routes.cpp.o CMakeFiles/Framework.dir/src/framework.cpp.o CMakeFiles/Framework.dir/lib/base64/base64.cpp.o
-/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib libFramework.a

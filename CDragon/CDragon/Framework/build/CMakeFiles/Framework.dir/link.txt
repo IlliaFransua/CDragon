@@ -1,2 +1,0 @@
-/usr/bin/ar qc libFramework.a CMakeFiles/Framework.dir/src/http/http_request.cpp.o CMakeFiles/Framework.dir/src/http/http_response.cpp.o CMakeFiles/Framework.dir/src/http/http_server.cpp.o CMakeFiles/Framework.dir/src/router/router.cpp.o CMakeFiles/Framework.dir/src/router/routes.cpp.o CMakeFiles/Framework.dir/src/framework.cpp.o
-/usr/bin/ranlib libFramework.a

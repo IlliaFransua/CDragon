@@ -1,3 +1,0 @@
-/Users/illiafransua/Desktop/course_project/Back-end/PasswordHasher/build/CMakeFiles/PasswordHasher.dir
-/Users/illiafransua/Desktop/course_project/Back-end/PasswordHasher/build/CMakeFiles/edit_cache.dir
-/Users/illiafransua/Desktop/course_project/Back-end/PasswordHasher/build/CMakeFiles/rebuild_cache.dir
