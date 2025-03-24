@@ -4,9 +4,10 @@ project(Framework)
 set(CMAKE_CXX_STANDARD 17)
 
 # ================================
-# Copying templates to the build directory (but I added them manually anyway)
+# Copying templates to the build directory
 # ================================
 file(COPY ${CMAKE_SOURCE_DIR}/src/views DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY ${CMAKE_SOURCE_DIR}/src/images DESTINATION ${CMAKE_BINARY_DIR})
 
 # ================================
 # Adding GoogleTest (via Homebrew)
