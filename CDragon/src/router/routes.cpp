@@ -333,6 +333,1178 @@ bool isUserAdmin(int userId) {
 }
 
 void setupRoutes(Router &router) {
+  // data getters
+
+  router.addStaticRoute(
+      "/main_page/styles.css", [](HttpRequest &req, HttpResponse &res) {
+        res.setStatus(200);
+        res.addHeader("Content-Type", "text/css; charset=utf-8");
+        res.setBody(loadFileContent("./views/normal/main_page/css/styles.css"));
+      });
+
+  router.addStaticRoute(
+      "/article_read_page/styles.css", [](HttpRequest &req, HttpResponse &res) {
+        res.setStatus(200);
+        res.addHeader("Content-Type", "text/css; charset=utf-8");
+        res.setBody(
+            loadFileContent("./views/normal/article_read_page/css/styles.css"));
+      });
+
+  router.addStaticRoute("/category_page/styles.css", [](HttpRequest &req,
+                                                        HttpResponse &res) {
+    res.setStatus(200);
+    res.addHeader("Content-Type", "text/css; charset=utf-8");
+    res.setBody(loadFileContent("./views/normal/category_page/css/styles.css"));
+  });
+
+  // Admin Routes
+
+  router.addStaticRoute("/admin/login_page", [](HttpRequest &req,
+                                                HttpResponse &res) {
+    if (isSessionOk(req, res)) {
+      res.setStatus(303); // redirect
+      res.addHeader("Location", "/admin/main_page");
+      return;
+    }
+
+    res.setStatus(200);
+    res.addHeader("Content-Type", "text/html; charset=utf-8");
+    res.setBody(loadFileContent("./views/admin/login_page/html/index.html"));
+  });
+
+  router.addStaticRoute(
+      "/admin/login_handler", [](HttpRequest &req, HttpResponse &res) {
+        json json = req.getJsonData();
+
+        string username, password;
+        try {
+          username = json.at("username");
+          password = json.at("password");
+        } catch (const exception &e) {
+          cout << e.what() << endl;
+          // res.setStatus(500);
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        // login
+        UserRecord userRecord;
+        try {
+          userRecord = usersTable.getRecordByUsername(username);
+        } catch (const runtime_error &e) {
+          cout << e.what() << endl;
+          // res.setStatus(401); // неправильные данные для авторизации
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        // password
+        string right_password = userRecord.getPasswordHash();
+        if (!bcrypt::validatePassword(password, right_password)) {
+          // res.setStatus(401); // неправильные данные для авторизации
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        // role
+        if (!isUserAdmin(userRecord.getUserId())) {
+          // res.setStatus(403); // у юзера нет прав
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        string userdata = to_string(userRecord.getUserId());
+        string sessionID = sessionRepository.createSessionID(userdata);
+        res.addCookie("session_id", sessionID);
+        res.setStatus(302); // redirect
+        res.addHeader("Location", "/admin/main_page");
+        return;
+
+        // try {
+        //   UserRecord userRecord =
+        //       usersTable.getRecordByUsernameAndPassword(username,
+        //       password);
+        //   vector<int> userRolesIds =
+        //       userRolesTable.getRoleIdsByUserId(userRecord.getUserId());
+
+        //   if (userRolesIds.empty()) {
+        //     res.setStatus(403); // у юзера нет ролей, а
+        //     значит нет прав return;
+        //   }
+
+        //   for (const auto &roleId : userRolesIds) {
+        //     RoleRecord roleRecord =
+        //     rolesTable.getRecordById(roleId);
+
+        //     if (roleRecord.getName() == "Admin") { // у
+        //     юзера есть роль Admin
+        // string userdata = std::to_string(userRecord.getUserId());
+        // string sessionID = sessionRepository.createSessionID(userdata);
+
+        // res.addCookie("session_id", sessionID);
+        // res.setStatus(302); // redirect
+        // res.addHeader("Location", "/admin/main_page");
+        // return;
+        //     }
+        //   }
+
+        //   res.setStatus(403); // нет прав
+        //   return;
+
+        // } catch (const exception &e) {
+        //   cout << e.what() << endl;
+        //   res.setStatus(401); // неправильные данные для
+        //   логинизации return;
+        // }
+      });
+
+  router.addStaticRoute("/admin/main_page", [](HttpRequest &req,
+                                               HttpResponse &res) {
+    if (!isSessionOk(req, res)) {
+      res.setStatus(303); // redirect
+      res.addHeader("Location", "/admin/login_page");
+      return;
+    }
+
+    string sessionId = req.getCookie().at("session_id");
+    Session session = sessionRepository.getSessionData(sessionId);
+
+    if (session.userData.empty()) {
+      // res.setStatus(500); // server error
+      res.setStatus(303); // redirect
+      res.addHeader("Location", "/admin/login_page");
+      return;
+    }
+
+    int userId;
+    try {
+      userId = std::stoi(session.userData);
+    } catch (const runtime_error &e) {
+      // res.setStatus(500); // server error
+      res.setStatus(303); // redirect
+      res.addHeader("Location", "/admin/login_page");
+      return;
+    }
+
+    // внимание, плохой алгоритм
+
+    vector<ArticleRecord> articles = articlesTable.getAll();
+    vector<string> htmlData;
+    for (const auto &article : articles) {
+      htmlData.emplace_back(
+          string(R"(<div class="sp-article-card" style="width: 100%">
+                  <img
+                    src=")") +
+          "/images/" + article.getSlug() + string(R"("
+                    alt="Мини-превью"
+                    class="sp-article-preview"
+                  />
+                  <div class="sp-article-info">
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: space-between;
+                        width: 80%;
+                      "
+                    >
+                      <h3 class="sp-article-title" style="width: 100%">)") +
+          article.getTitle() + string(R"(</h3>
+                      <h5 style="opacity: 0.4; width: 100%">Дата и время публикации: )") +
+          article.getReleaseDate().substr(0,
+                                          article.getReleaseDate().size() - 3) +
+          string(R"(</h5>
+                    </div>
+                    <div class="sp-article-buttons">
+                      <div class="sp-article-buttons-row">)") +
+          (canUserEditArticles(userId)
+               ? string(
+                     R"(<button class="sp-btn sp-edit-btn" data-article-id=")") +
+                     to_string(article.getArticleId()) +
+                     string(R"(" onclick="redirectToArticleEditor(this) ">
+                          Редактировать
+                        </button>)")
+               : string(R"()")) +
+          (canUserArchiveArticles(userId)
+               ? string(
+                     R"(<button class="sp-btn sp-archive-btn" data-article-id=")") +
+                     to_string(article.getArticleId()) +
+                     string(R"(" onclick="archiveArticle(this) ">
+                          Архивировать
+                        </button>)")
+               : string(R"()")) +
+          string(R"(</div>
+                      <div class="sp-article-buttons-row">)") +
+          (canUserDeleteArticles(userId)
+               ? string(
+                     R"(<button class="sp-btn sp-delete-btn" data-article-id=")") +
+                     to_string(article.getArticleId()) +
+                     string(R"(" onclick="deleteArticle(this) ">
+                          Удалить
+                        </button>)")
+               : string(R"()")) +
+          string(R"(
+                        <button class="sp-btn sp-public-btn" data-article-id=")") +
+          to_string(article.getArticleId()) +
+          string(R"(" onclick="publishArticle(this) ">
+                          Опубликовать сейчас
+                        </button>
+                      </div>
+                    </div>
+                  </div></div>)"));
+    }
+
+    unordered_map<string, vector<string>> data = {{"articles", htmlData}};
+
+    res.setStatus(200);
+    res.addHeader("Content-Type", "text/html; charset=utf-8");
+    res.setBody(TemplateRenderer::render(
+        "./views/admin/main_page/html/index.html", data));
+  });
+
+  router.addStaticRoute("/admin/main_page/filter_handler", [](HttpRequest &req,
+                                                              HttpResponse
+                                                                  &res) {
+    if (!isSessionOk(req, res)) {
+      res.setStatus(303); // redirect
+      res.addHeader("Location", "/admin/login_page");
+      return;
+    }
+
+    json data = req.getJsonData();
+
+    string searchTitle = data.at("searchTitle");
+    string statusFilter = data.at("statusFilter");
+    string releaseDateStart = data.at("releaseDateStart");
+    string releaseDateEnd = data.at("releaseDateEnd");
+    vector<string> categoryFilter =
+        data.at("categoryFilter").get<vector<string>>();
+    vector<string> keywordFilter =
+        data.at("keywordFilter").get<vector<string>>();
+    vector<string> tagFilter = data.at("tagFilter").get<vector<string>>();
+
+    vector<ArticleRecord> articles = articlesTable.filterArticles(
+        searchTitle, statusFilter, releaseDateStart, releaseDateEnd,
+        categoryFilter, keywordFilter, tagFilter);
+
+    // внимание, плохой алгоритм
+
+    string sessionId = req.getCookie().at("session_id");
+    Session session = sessionRepository.getSessionData(sessionId);
+
+    if (session.userData.empty()) {
+      // res.setStatus(500); // server error
+      res.setStatus(303); // redirect
+      res.addHeader("Location", "/admin/login_page");
+      return;
+    }
+
+    int userId;
+    try {
+      userId = std::stoi(session.userData);
+    } catch (const runtime_error &e) {
+      // res.setStatus(500); // server error
+      res.setStatus(303); // redirect
+      res.addHeader("Location", "/admin/login_page");
+      return;
+    }
+
+    string htmlPrice;
+    for (const auto &article : articles) {
+      htmlPrice +=
+          (string(R"(<div class="sp-article-card" style="width: 100%">
+                  <img
+                    src=")") +
+           "/images/" + article.getSlug() + string(R"("
+                    alt="Мини-превью"
+                    class="sp-article-preview"
+                  />
+                  <div class="sp-article-info">
+                    <div
+                      style="
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: space-between;
+                        width: 80%;
+                      "
+                    >
+                      <h3 class="sp-article-title" style="width: 100%">)") +
+           article.getTitle() + string(R"(</h3>
+                      <h5 style="opacity: 0.4; width: 100%">Дата и время публикации: )") +
+           article.getReleaseDate().substr(0, article.getReleaseDate().size() -
+                                                  3) +
+           string(R"(</h5>
+                    </div>
+                    <div class="sp-article-buttons">
+                      <div class="sp-article-buttons-row">)") +
+           (canUserEditArticles(userId)
+                ? string(
+                      R"(<button class="sp-btn sp-edit-btn" data-article-id=")") +
+                      to_string(article.getArticleId()) +
+                      string(R"(" onclick="redirectToArticleEditor(this) ">
+                          Редактировать
+                        </button>)")
+                : string(R"()")) +
+           (canUserArchiveArticles(userId)
+                ? string(
+                      R"(<button class="sp-btn sp-archive-btn" data-article-id=")") +
+                      to_string(article.getArticleId()) +
+                      string(R"(" onclick="archiveArticle(this) ">
+                          Архивировать
+                        </button>)")
+                : string(R"()")) +
+           string(R"(</div>
+                      <div class="sp-article-buttons-row">)") +
+           (canUserDeleteArticles(userId)
+                ? string(
+                      R"(<button class="sp-btn sp-delete-btn" data-article-id=")") +
+                      to_string(article.getArticleId()) +
+                      string(R"(" onclick="deleteArticle(this) ">
+                          Удалить
+                        </button>)")
+                : string(R"()")) +
+           string(R"(
+                        <button class="sp-btn sp-public-btn" data-article-id=")") +
+           to_string(article.getArticleId()) +
+           string(R"(" onclick="publishArticle(this) ">
+                          Опубликовать сейчас
+                        </button>
+                      </div>
+                    </div>
+                  </div></div>)"));
+    }
+
+    res.setStatus(200);
+    res.addHeader("Content-Type", "text/html; charset=utf-8");
+    res.setBody(htmlPrice);
+  });
+
+  router.addStaticRoute(
+      "/admin/article_creator_page", [](HttpRequest &req, HttpResponse &res) {
+        if (!isSessionOk(req, res)) {
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        string sessionId = req.getCookie().at("session_id");
+        Session session = sessionRepository.getSessionData(sessionId);
+
+        if (session.userData.empty()) {
+          // res.setStatus(500); // server error
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        int userId;
+        try {
+          userId = std::stoi(session.userData);
+        } catch (const runtime_error &e) {
+          // res.setStatus(500); // server error
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        if (canUserCreateArticles(userId)) {
+          res.setStatus(200);
+          res.setBody(
+              loadFileContent("./views/admin/article_creator/html/index.html"));
+          return;
+        }
+
+        // нет прав
+        res.setStatus(303); // redirect
+        res.addHeader("Location", "/admin/main_page");
+        return;
+      });
+
+  router.addStaticRoute(
+      "/admin/article_creator_handler",
+      [](HttpRequest &req, HttpResponse &res) {
+        if (!isSessionOk(req, res)) {
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        string sessionId = req.getCookie().at("session_id");
+        Session session = sessionRepository.getSessionData(sessionId);
+
+        if (session.userData.empty()) {
+          // res.setStatus(500); // server error
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        int userId;
+        try {
+          userId = std::stoi(session.userData);
+        } catch (const runtime_error &e) {
+          // res.setStatus(500); // server error
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        if (!canUserCreateArticles(userId)) {
+          // res.setStatus(403); // нет прав
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        // save article
+
+        try {
+          const json &json = req.getJsonData();
+
+          // cout << json.dump(4) << endl;
+
+          vector<string> keywords = json.at("keywords").get<vector<string>>();
+          vector<string> categories =
+              json.at("categories").get<vector<string>>();
+          vector<string> tags = json.at("tags").get<vector<string>>();
+
+          const string &slug = json.at("slug");
+          const string imagePath = "./images/" + slug + ".jpg";
+          if (!saveBase64Image(json.at("previewImage"), imagePath)) {
+            throw runtime_error("Ошибка сохранения изображения");
+          }
+
+          const string content = json.at("content").dump();
+
+          articlesTable.insert(json.at("title"), json.at("summary"), content,
+                               json.at("status"), json.at("publishDate"), slug,
+                               json.at("seoTitle"), json.at("seoDescription"),
+                               imagePath);
+
+          ArticleRecord articleRecord = articlesTable.getRecordBySlug(slug);
+
+          if (!keywords.empty())
+            for (const auto &keyword : keywords) {
+              try {
+                keywordsTable.insert(keyword);
+              } catch (const exception &e) {
+              }
+
+              articleKeywordsTable.insert(
+                  articleRecord.getArticleId(),
+                  keywordsTable.searchByKeyword(keyword).at(0).getKeywordId());
+            }
+
+          if (!categories.empty())
+            for (const auto &category : categories) {
+              try {
+                categoriesTable.insert(category, ""); // its empty description
+              } catch (const exception &e) {
+              }
+
+              articleCategoriesTable.insert(
+                  articleRecord.getArticleId(),
+                  categoriesTable.searchByName(category).at(0).getCategoryId());
+            }
+
+          if (!tags.empty())
+            for (const auto &tag : tags) {
+              try {
+                tagsTable.insert(tag);
+              } catch (const exception &e) {
+              }
+
+              articleTagsTable.insert(
+                  articleRecord.getArticleId(),
+                  tagsTable.searchByName(tag).at(0).getTagId());
+            }
+
+        } catch (const exception &e) {
+          cout << e.what() << endl;
+          res.setStatus(500); // server error
+          return;
+        }
+
+        res.setStatus(200);
+        return;
+      });
+
+  router.addDynamicRoute(
+      "/admin/article_editor_page/<article_id>",
+      [](HttpRequest &req, HttpResponse &res) {
+        if (!isSessionOk(req, res)) {
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        string sessionId = req.getCookie().at("session_id");
+        Session session = sessionRepository.getSessionData(sessionId);
+
+        if (session.userData.empty()) {
+          // res.setStatus(500); // server error
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        int userId;
+        try {
+          userId = std::stoi(session.userData);
+        } catch (const runtime_error &e) {
+          // res.setStatus(500); // server error
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        if (canUserEditArticles(userId)) {
+          res.setStatus(200);
+          res.setBody(
+              loadFileContent("./views/admin/article_editor/html/index.html"));
+          return;
+        }
+
+        // нет прав
+        res.setStatus(303); // redirect
+        res.addHeader("Location", "/admin/main_page");
+        return;
+      });
+
+  router.addDynamicRoute(
+      "/admin/get_json_of_article/<article_id>",
+      [](HttpRequest &req, HttpResponse &res) {
+        // if (!isSessionOk(req, res)) {
+        //   res.setStatus(303); // redirect
+        //   res.addHeader("Location", "/admin/login_page");
+        //   return;
+        // }
+
+        try {
+          int article_id = std::stoi(req.getPathParams().at(0));
+          ArticleRecord article = articlesTable.getRecordById(article_id);
+
+          vector<int> keywordIds =
+              articleKeywordsTable.getKeywordIdsForArticle(article_id);
+          vector<int> categoriesIds =
+              articleCategoriesTable.getCategoryIdsForArticle(article_id);
+          vector<int> tagIds = articleTagsTable.getTagIdsForArticle(article_id);
+
+          vector<string> keywords;
+          for (const auto &id : keywordIds) {
+            string keyword = keywordsTable.getRecordById(id).getKeyword();
+            keywords.emplace_back(keyword);
+          }
+
+          vector<string> categories;
+          for (const auto &id : categoriesIds) {
+            string name = categoriesTable.getRecordById(id).getName();
+            categories.emplace_back(name);
+          }
+
+          vector<string> tags;
+          for (const auto &id : tagIds) {
+            string name = tagsTable.getRecordById(id).getName();
+            tags.emplace_back(name);
+          }
+
+          json articleJson = articlesTable.getRecordById(article_id).to_json();
+
+          articleJson["keywords"] = keywords;
+          articleJson["categories"] = categories;
+          articleJson["tags"] = tags;
+
+          res.setStatus(200);
+          res.addHeader("Content-Type", "application/javascript");
+          cout << articleJson.dump(2) << endl;
+          res.setBody(articleJson.dump());
+          return;
+
+        } catch (const exception &e) {
+          cout << e.what() << endl;
+          res.setStatus(500);
+          return;
+        }
+      });
+
+  router.addStaticRoute(
+      "/admin/get_json_of_all_categories",
+      [](HttpRequest &req, HttpResponse &res) {
+        if (!isSessionOk(req, res)) {
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        try {
+          vector<CategoryRecord> categoriesList = categoriesTable.getAll();
+
+          json categoriesJson = json::array();
+
+          for (const auto &category : categoriesList) {
+            json categoryJson;
+            categoryJson["id"] = category.getCategoryId();
+            categoryJson["name"] = category.getName();
+            categoryJson["descripton"] = category.getDescription();
+
+            categoriesJson.push_back(categoryJson);
+          }
+
+          json responseJson;
+          responseJson["categories"] = categoriesJson;
+
+          cout << "result: " << responseJson.dump(4) << endl;
+
+          res.setStatus(200);
+          res.addHeader("Content-Type", "application/javascript");
+          res.setBody(responseJson.dump());
+          return;
+
+        } catch (const exception &e) {
+          res.setStatus(500);
+          return;
+        }
+      });
+
+  router.addStaticRoute(
+      "/admin/get_json_of_all_tags", [](HttpRequest &req, HttpResponse &res) {
+        if (!isSessionOk(req, res)) {
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        try {
+          vector<TagRecord> tagsList = tagsTable.getAll();
+
+          json tagsJson = json::array();
+
+          for (const auto &tag : tagsList) {
+            json tagJson;
+            tagJson["id"] = tag.getTagId();
+            tagJson["name"] = tag.getName();
+
+            tagsJson.push_back(tagJson);
+          }
+
+          json responseJson;
+          responseJson["tags"] = tagsJson;
+
+          res.setStatus(200);
+          res.addHeader("Content-Type", "application/javascript");
+          res.setBody(responseJson.dump());
+          return;
+
+        } catch (const exception &e) {
+          cout << "get_json_of_all_article_categories: " << e.what() << endl;
+          res.setStatus(500);
+          return;
+        }
+      });
+
+  // archive methond
+  router.addDynamicRoute(
+      "/admin/get_all_categories_of_aticle/<article_id>",
+      [](HttpRequest &req, HttpResponse &res) {
+        if (!isSessionOk(req, res)) {
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        try {
+          int article_id = std::stoi(req.getPathParams().at(0));
+          ArticleRecord article = articlesTable.getRecordById(article_id);
+
+          vector<int> tagIds =
+              articleTagsTable.getTagIdsForArticle(article.getArticleId());
+
+          json tags = json::array();
+
+          for (const auto &tagId : tagIds) {
+
+            json tagJson;
+            tagJson["tag_id"] = tagJson;
+            tagJson["name"] = tagsTable.getRecordById(tagJson).getName();
+
+            tags.push_back(tagJson);
+          }
+
+          json responseJson;
+          responseJson["tags"] = tags;
+
+          res.setStatus(200);
+          res.addHeader("Content-Type", "application/javascript");
+          res.setBody(responseJson.dump());
+          return;
+
+        } catch (const exception &e) {
+          cout << "get_json_of_all_article_categories: " << e.what() << endl;
+          res.setStatus(500);
+          return;
+        }
+      });
+
+  // archive methond
+  router.addDynamicRoute(
+      "/admin/get_all_tags_of_aticle/<article_id>",
+      [](HttpRequest &req, HttpResponse &res) {
+        if (!isSessionOk(req, res)) {
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        try {
+          int article_id = std::stoi(req.getPathParams().at(0));
+          ArticleRecord article = articlesTable.getRecordById(article_id);
+
+          vector<int> tagIds =
+              articleTagsTable.getTagIdsForArticle(article.getArticleId());
+
+          json tags = json::array();
+
+          for (const auto &tagId : tagIds) {
+
+            json tagJson;
+            tagJson["tag_id"] = tagJson;
+            tagJson["name"] = tagsTable.getRecordById(tagJson).getName();
+
+            tags.push_back(tagJson);
+          }
+
+          json responseJson;
+          responseJson["tags"] = tags;
+
+          res.setStatus(200);
+          res.addHeader("Content-Type", "application/javascript");
+          res.setBody(responseJson.dump());
+          return;
+
+        } catch (const exception &e) {
+          cout << "get_json_of_all_article_categories: " << e.what() << endl;
+          res.setStatus(500);
+          return;
+        }
+      });
+
+  router.addStaticRoute("/admin/article_editor_handler", [](HttpRequest &req,
+                                                            HttpResponse &res) {
+    if (!isSessionOk(req, res)) {
+      res.setStatus(303); // redirect
+      res.addHeader("Location", "/admin/login_page");
+      return;
+    }
+
+    string sessionId = req.getCookie().at("session_id");
+    Session session = sessionRepository.getSessionData(sessionId);
+
+    if (session.userData.empty()) {
+      // res.setStatus(500); // server error
+      res.setStatus(303); // redirect
+      res.addHeader("Location", "/admin/login_page");
+      return;
+    }
+
+    int userId;
+    try {
+      userId = std::stoi(session.userData);
+    } catch (const runtime_error &e) {
+      // res.setStatus(500); // server error
+      res.setStatus(303); // redirect
+      res.addHeader("Location", "/admin/login_page");
+      return;
+    }
+
+    if (!canUserCreateArticles(userId)) {
+      // res.setStatus(403); // нет прав
+      res.setStatus(303); // redirect
+      res.addHeader("Location", "/admin/login_page");
+      return;
+    }
+
+    try {
+      const json &json = req.getJsonData();
+
+      vector<string> keywords = json.at("keywords").get<vector<string>>();
+      vector<string> categories = json.at("categories").get<vector<string>>();
+      vector<string> tags = json.at("tags").get<vector<string>>();
+
+      const string &slug = json.at("slug");
+      const string imagePath = "./images/" + slug + ".jpg";
+      cout << "new image:" << json.at("previewImage").get<string>() << "]"
+           << endl;
+      if (!json.at("previewImage").get<string>().empty() &&
+          !saveBase64Image(json.at("previewImage"), imagePath)) {
+        // throw runtime_error("Ошибка сохранения изображения");
+      }
+
+      ArticleRecord updatetArticle(articlesTable.getRecordBySlug(slug));
+
+      const string content = json.at("content");
+
+      updatetArticle.setTitle(json.at("title"));
+      updatetArticle.setSummary(json.at("summary"));
+      updatetArticle.setContent(content);
+      updatetArticle.setStatus(json.at("status"));
+      updatetArticle.setReleaseDate(json.at("publishDate"));
+      updatetArticle.setSeoTitle(json.at("seoTitle"));
+      updatetArticle.setSeoDescription(json.at("seoDescription"));
+      // updatetArticle.setPreviewImage(imagePath);
+
+      articlesTable.update(updatetArticle);
+
+      int article_id = updatetArticle.getArticleId();
+
+      if (!keywords.empty()) {
+        vector<int> keywordIds =
+            articleKeywordsTable.getKeywordIdsForArticle(article_id);
+
+        for (const auto &keywordId : keywordIds) {
+          articleKeywordsTable.remove(article_id, keywordId);
+        }
+
+        for (const auto &keyword : keywords) {
+          try {
+            keywordsTable.insert(keyword);
+          } catch (const exception &e) {
+          }
+
+          try {
+            articleKeywordsTable.insert(
+                article_id,
+                keywordsTable.searchByKeyword(keyword).at(0).getKeywordId());
+          } catch (const exception &e) {
+          }
+        }
+      }
+
+      if (!categories.empty()) {
+        vector<int> categoryIds =
+            articleCategoriesTable.getCategoryIdsForArticle(article_id);
+
+        for (const auto &categoryId : categoryIds) {
+          articleCategoriesTable.remove(article_id, categoryId);
+        }
+
+        for (const auto &category : categories) {
+          try {
+            categoriesTable.insert(category, ""); // its empty description
+          } catch (const exception &e) {
+          }
+
+          try {
+            articleCategoriesTable.insert(
+                article_id,
+                categoriesTable.searchByName(category).at(0).getCategoryId());
+          } catch (const exception &e) {
+          }
+        }
+      }
+
+      if (!tags.empty()) {
+        vector<int> tagIds = articleTagsTable.getTagIdsForArticle(article_id);
+
+        for (const auto &tagId : tagIds) {
+          articleTagsTable.remove(article_id, tagId);
+        }
+
+        for (const auto &tag : tags) {
+          try {
+            tagsTable.insert(tag);
+          } catch (const exception &e) {
+          }
+
+          try {
+            articleTagsTable.insert(
+                article_id, tagsTable.searchByName(tag).at(0).getTagId());
+          } catch (const exception &e) {
+          }
+        }
+      }
+    } catch (const exception &e) {
+      cout << e.what() << endl;
+      res.setStatus(500); // server error
+      return;
+    }
+
+    res.setStatus(200);
+    return;
+  });
+
+  router.addDynamicRoute(
+      "/admin/article_editor_page/publish/<article_id>",
+      [](HttpRequest &req, HttpResponse &res) {
+        if (!isSessionOk(req, res)) {
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        try {
+          if (!articlesTable.publish(std::stoi(req.getPathParams().at(0)))) {
+            res.setStatus(500);
+            return;
+          }
+          res.setStatus(200);
+          return;
+        } catch (const exception &e) {
+          cout << e.what() << endl;
+          res.setStatus(500);
+          return;
+        }
+      });
+
+  router.addDynamicRoute(
+      "/admin/article_editor_page/delete/<article_id>",
+      [](HttpRequest &req, HttpResponse &res) {
+        if (!isSessionOk(req, res)) {
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        try {
+          if (!articlesTable.remove(std::stoi(req.getPathParams().at(0)))) {
+            res.setStatus(500);
+            return;
+          }
+          res.setStatus(200);
+          return;
+        } catch (const exception &e) {
+          cout << e.what() << endl;
+          res.setStatus(500);
+          return;
+        }
+      });
+
+  router.addDynamicRoute(
+      "/admin/article_editor_page/archive/<article_id>",
+      [](HttpRequest &req, HttpResponse &res) {
+        if (!isSessionOk(req, res)) {
+          res.setStatus(303); // redirect
+          res.addHeader("Location", "/admin/login_page");
+          return;
+        }
+
+        try {
+          if (!articlesTable.archive(std::stoi(req.getPathParams().at(0)))) {
+            res.setStatus(500);
+            return;
+          }
+          res.setStatus(200);
+          return;
+        } catch (const exception &e) {
+          cout << e.what() << endl;
+          res.setStatus(500);
+          return;
+        }
+      });
+
+  // data getters
+
+  router.addStaticRoute("/get_filter_data", [](HttpRequest &req,
+                                               HttpResponse &res) {
+    vector<CategoryRecord> categories = categoriesTable.getAll();
+    vector<KeywordRecord> keywords = keywordsTable.getAll();
+    vector<TagRecord> tags = tagsTable.getAll();
+
+    json json;
+
+    json["categories"] = json::array();
+    for (const auto &category : categories) {
+      json["categories"].push_back(
+          {{"id", category.getCategoryId()},
+           {"name", category.getName()},
+           {"description", category.getDescription()}});
+    }
+
+    json["keywords"] = json::array();
+    for (const auto &keyword : keywords) {
+      json["keywords"].push_back(
+          {{"id", keyword.getKeyword()}, {"keyword", keyword.getKeyword()}});
+    }
+
+    json["tags"] = json::array();
+    for (const auto &tag : tags) {
+      json["tags"].push_back({{"id", tag.getTagId()}, {"name", tag.getName()}});
+    }
+
+    res.setStatus(200);
+    res.addHeader("Content-Type", "application/json; charset=utf-8");
+    res.setBody(json.dump(2));
+  });
+
+  router.addDynamicRoute(
+      "/images/<slug>", [](HttpRequest &req, HttpResponse &res) {
+        try {
+          string slug = req.getPathParams().at(0);
+          res.setStatus(200);
+          res.addHeader("Content-Type", "image/jpeg");
+          res.setBody(loadFileContent("./images/" + slug + ".jpg"));
+        } catch (const exception &e) {
+          cout << e.what() << endl;
+          res.setStatus(404);
+        }
+      });
+
+  router.addStaticRoute("/admin/article_creator/css/styles.css",
+                        [](HttpRequest &req, HttpResponse &res) {
+                          res.setStatus(200);
+                          res.addHeader("Content-Type", "text/css");
+
+                          res.setBody(loadFileContent(
+                              "./views/admin/article_creator/css/styles.css"));
+                        });
+
+  router.addStaticRoute(
+      "/admin/article_creator/js/functions.js",
+      [](HttpRequest &request, HttpResponse &response) {
+        response.setStatus(200);
+        response.addHeader("Content-Type", "application/javascript");
+
+        response.setBody(
+            loadFileContent("./views/admin/article_creator/js/functions.js"));
+      });
+
+  router.addStaticRoute(
+      "/admin/article_creator/js/quill_settings.js",
+      [](HttpRequest &request, HttpResponse &response) {
+        response.setStatus(200);
+        response.addHeader("Content-Type", "application/javascript");
+
+        response.setBody(loadFileContent("./views/admin/article_creator/"
+                                         "js/quill_settings.js"));
+      });
+
+  router.addStaticRoute(
+      "/admin/article_creator/js/handlers.js",
+      [](HttpRequest &request, HttpResponse &response) {
+        response.setStatus(200);
+        response.addHeader("Content-Type", "application/javascript");
+
+        response.setBody(
+            loadFileContent("./views/admin/article_creator/js/handlers.js"));
+      });
+
+  router.addStaticRoute("/admin/article_editor/css/styles.css",
+                        [](HttpRequest &req, HttpResponse &res) {
+                          res.setStatus(200);
+                          res.addHeader("Content-Type", "text/css");
+
+                          res.setBody(loadFileContent(
+                              "./views/admin/article_editor/css/styles.css"));
+                        });
+
+  router.addStaticRoute(
+      "/admin/article_editor/js/functions.js",
+      [](HttpRequest &request, HttpResponse &response) {
+        response.setStatus(200);
+        response.addHeader("Content-Type", "application/javascript");
+
+        response.setBody(
+            loadFileContent("./views/admin/article_editor/js/functions.js"));
+      });
+
+  router.addStaticRoute(
+      "/admin/article_editor/js/quill_settings.js",
+      [](HttpRequest &request, HttpResponse &response) {
+        response.setStatus(200);
+        response.addHeader("Content-Type", "application/javascript");
+
+        response.setBody(loadFileContent("./views/admin/article_editor/"
+                                         "js/quill_settings.js"));
+      });
+
+  router.addStaticRoute(
+      "/admin/article_editor/js/handlers.js",
+      [](HttpRequest &request, HttpResponse &response) {
+        response.setStatus(200);
+        response.addHeader("Content-Type", "application/javascript");
+
+        response.setBody(
+            loadFileContent("./views/admin/article_editor/js/handlers.js"));
+      });
+
+  router.addStaticRoute("/admin/login_page/css/style.css",
+                        [](HttpRequest &request, HttpResponse &response) {
+                          response.setStatus(200);
+                          response.addHeader("Content-Type", "text/css");
+
+                          response.setBody(loadFileContent(
+                              "./views/admin/login_page/css/style.css"));
+                        });
+
+  router.addStaticRoute("/admin/main_page/css/styles.css",
+                        [](HttpRequest &request, HttpResponse &response) {
+                          response.setStatus(200);
+                          response.addHeader("Content-Type", "text/css");
+
+                          response.setBody(loadFileContent(
+                              "./views/admin/main_page/css/styles.css"));
+                        });
+
+  router.addStaticRoute(
+      "/admin/main_page/css/fp.css",
+      [](HttpRequest &request, HttpResponse &response) {
+        response.setStatus(200);
+        response.addHeader("Content-Type", "text/css");
+
+        response.setBody(loadFileContent("./views/admin/main_page/css/fp.css"));
+      });
+
+  router.addStaticRoute(
+      "/admin/main_page/css/sp.css",
+      [](HttpRequest &request, HttpResponse &response) {
+        response.setStatus(200);
+        response.addHeader("Content-Type", "text/css");
+
+        response.setBody(loadFileContent("./views/admin/main_page/css/sp.css"));
+      });
+
+  router.addStaticRoute(
+      "/admin/main_page/js/functions.js",
+      [](HttpRequest &request, HttpResponse &response) {
+        response.setStatus(200);
+        response.addHeader("Content-Type", "application/javascript");
+
+        response.setBody(
+            loadFileContent("./views/admin/main_page/js/functions.js"));
+      });
+
+  router.addStaticRoute(
+      "/admin/main_page/js/quill_settings.js",
+      [](HttpRequest &request, HttpResponse &response) {
+        response.setStatus(200);
+        response.addHeader("Content-Type", "application/javascript");
+
+        response.setBody(
+            loadFileContent("./views/admin/main_page/js/quill_settings.js"));
+      });
+
+  router.addStaticRoute(
+      "/admin/main_page/js/handlers.js",
+      [](HttpRequest &request, HttpResponse &response) {
+        response.setStatus(200);
+        response.addHeader("Content-Type", "application/javascript");
+
+        response.setBody(
+            loadFileContent("./views/admin/main_page/js/handlers.js"));
+      });
+
+  router.addStaticRoute(
+      "/admin/main_page/js/fp.js",
+      [](HttpRequest &request, HttpResponse &response) {
+        response.setStatus(200);
+        response.addHeader("Content-Type", "application/javascript");
+
+        response.setBody(loadFileContent("./views/admin/main_page/js/fp.js"));
+      });
+
   router.addStaticRoute("/", [](HttpRequest &req, HttpResponse &res) {
     res.setStatus(200);
     res.addHeader("Content-Type", "text/html; charset=utf-8");
@@ -2226,1178 +3398,6 @@ void setupRoutes(Router &router) {
       return;
     }
   });
-
-  // data getters
-
-  router.addStaticRoute(
-      "/main_page/styles.css", [](HttpRequest &req, HttpResponse &res) {
-        res.setStatus(200);
-        res.addHeader("Content-Type", "text/css; charset=utf-8");
-        res.setBody(loadFileContent("./views/normal/main_page/css/styles.css"));
-      });
-
-  router.addStaticRoute(
-      "/article_read_page/styles.css", [](HttpRequest &req, HttpResponse &res) {
-        res.setStatus(200);
-        res.addHeader("Content-Type", "text/css; charset=utf-8");
-        res.setBody(
-            loadFileContent("./views/normal/article_read_page/css/styles.css"));
-      });
-
-  router.addStaticRoute("/category_page/styles.css", [](HttpRequest &req,
-                                                        HttpResponse &res) {
-    res.setStatus(200);
-    res.addHeader("Content-Type", "text/css; charset=utf-8");
-    res.setBody(loadFileContent("./views/normal/category_page/css/styles.css"));
-  });
-
-  // Admin Routes
-
-  router.addStaticRoute("/admin/login_page", [](HttpRequest &req,
-                                                HttpResponse &res) {
-    if (isSessionOk(req, res)) {
-      res.setStatus(303); // redirect
-      res.addHeader("Location", "/admin/main_page");
-      return;
-    }
-
-    res.setStatus(200);
-    res.addHeader("Content-Type", "text/html; charset=utf-8");
-    res.setBody(loadFileContent("./views/admin/login_page/html/index.html"));
-  });
-
-  router.addStaticRoute(
-      "/admin/login_handler", [](HttpRequest &req, HttpResponse &res) {
-        json json = req.getJsonData();
-
-        string username, password;
-        try {
-          username = json.at("username");
-          password = json.at("password");
-        } catch (const exception &e) {
-          cout << e.what() << endl;
-          // res.setStatus(500);
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        // login
-        UserRecord userRecord;
-        try {
-          userRecord = usersTable.getRecordByUsername(username);
-        } catch (const runtime_error &e) {
-          cout << e.what() << endl;
-          // res.setStatus(401); // неправильные данные для авторизации
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        // password
-        string right_password = userRecord.getPasswordHash();
-        if (!bcrypt::validatePassword(password, right_password)) {
-          // res.setStatus(401); // неправильные данные для авторизации
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        // role
-        if (!isUserAdmin(userRecord.getUserId())) {
-          // res.setStatus(403); // у юзера нет прав
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        string userdata = to_string(userRecord.getUserId());
-        string sessionID = sessionRepository.createSessionID(userdata);
-        res.addCookie("session_id", sessionID);
-        res.setStatus(302); // redirect
-        res.addHeader("Location", "/admin/main_page");
-        return;
-
-        // try {
-        //   UserRecord userRecord =
-        //       usersTable.getRecordByUsernameAndPassword(username,
-        //       password);
-        //   vector<int> userRolesIds =
-        //       userRolesTable.getRoleIdsByUserId(userRecord.getUserId());
-
-        //   if (userRolesIds.empty()) {
-        //     res.setStatus(403); // у юзера нет ролей, а
-        //     значит нет прав return;
-        //   }
-
-        //   for (const auto &roleId : userRolesIds) {
-        //     RoleRecord roleRecord =
-        //     rolesTable.getRecordById(roleId);
-
-        //     if (roleRecord.getName() == "Admin") { // у
-        //     юзера есть роль Admin
-        // string userdata = std::to_string(userRecord.getUserId());
-        // string sessionID = sessionRepository.createSessionID(userdata);
-
-        // res.addCookie("session_id", sessionID);
-        // res.setStatus(302); // redirect
-        // res.addHeader("Location", "/admin/main_page");
-        // return;
-        //     }
-        //   }
-
-        //   res.setStatus(403); // нет прав
-        //   return;
-
-        // } catch (const exception &e) {
-        //   cout << e.what() << endl;
-        //   res.setStatus(401); // неправильные данные для
-        //   логинизации return;
-        // }
-      });
-
-  router.addStaticRoute("/admin/main_page", [](HttpRequest &req,
-                                               HttpResponse &res) {
-    if (!isSessionOk(req, res)) {
-      res.setStatus(303); // redirect
-      res.addHeader("Location", "/admin/login_page");
-      return;
-    }
-
-    string sessionId = req.getCookie().at("session_id");
-    Session session = sessionRepository.getSessionData(sessionId);
-
-    if (session.userData.empty()) {
-      // res.setStatus(500); // server error
-      res.setStatus(303); // redirect
-      res.addHeader("Location", "/admin/login_page");
-      return;
-    }
-
-    int userId;
-    try {
-      userId = std::stoi(session.userData);
-    } catch (const runtime_error &e) {
-      // res.setStatus(500); // server error
-      res.setStatus(303); // redirect
-      res.addHeader("Location", "/admin/login_page");
-      return;
-    }
-
-    // внимание, плохой алгоритм
-
-    vector<ArticleRecord> articles = articlesTable.getAll();
-    vector<string> htmlData;
-    for (const auto &article : articles) {
-      htmlData.emplace_back(
-          string(R"(<div class="sp-article-card" style="width: 100%">
-                  <img
-                    src=")") +
-          "/images/" + article.getSlug() + string(R"("
-                    alt="Мини-превью"
-                    class="sp-article-preview"
-                  />
-                  <div class="sp-article-info">
-                    <div
-                      style="
-                        display: flex;
-                        flex-direction: column;
-                        justify-content: space-between;
-                        width: 80%;
-                      "
-                    >
-                      <h3 class="sp-article-title" style="width: 100%">)") +
-          article.getTitle() + string(R"(</h3>
-                      <h5 style="opacity: 0.4; width: 100%">Дата и время публикации: )") +
-          article.getReleaseDate().substr(0,
-                                          article.getReleaseDate().size() - 3) +
-          string(R"(</h5>
-                    </div>
-                    <div class="sp-article-buttons">
-                      <div class="sp-article-buttons-row">)") +
-          (canUserEditArticles(userId)
-               ? string(
-                     R"(<button class="sp-btn sp-edit-btn" data-article-id=")") +
-                     to_string(article.getArticleId()) +
-                     string(R"(" onclick="redirectToArticleEditor(this) ">
-                          Редактировать
-                        </button>)")
-               : string(R"()")) +
-          (canUserArchiveArticles(userId)
-               ? string(
-                     R"(<button class="sp-btn sp-archive-btn" data-article-id=")") +
-                     to_string(article.getArticleId()) +
-                     string(R"(" onclick="archiveArticle(this) ">
-                          Архивировать
-                        </button>)")
-               : string(R"()")) +
-          string(R"(</div>
-                      <div class="sp-article-buttons-row">)") +
-          (canUserDeleteArticles(userId)
-               ? string(
-                     R"(<button class="sp-btn sp-delete-btn" data-article-id=")") +
-                     to_string(article.getArticleId()) +
-                     string(R"(" onclick="deleteArticle(this) ">
-                          Удалить
-                        </button>)")
-               : string(R"()")) +
-          string(R"(
-                        <button class="sp-btn sp-public-btn" data-article-id=")") +
-          to_string(article.getArticleId()) +
-          string(R"(" onclick="publishArticle(this) ">
-                          Опубликовать сейчас
-                        </button>
-                      </div>
-                    </div>
-                  </div></div>)"));
-    }
-
-    unordered_map<string, vector<string>> data = {{"articles", htmlData}};
-
-    res.setStatus(200);
-    res.addHeader("Content-Type", "text/html; charset=utf-8");
-    res.setBody(TemplateRenderer::render(
-        "./views/admin/main_page/html/index.html", data));
-  });
-
-  router.addStaticRoute("/admin/main_page/filter_handler", [](HttpRequest &req,
-                                                              HttpResponse
-                                                                  &res) {
-    if (!isSessionOk(req, res)) {
-      res.setStatus(303); // redirect
-      res.addHeader("Location", "/admin/login_page");
-      return;
-    }
-
-    json data = req.getJsonData();
-
-    string searchTitle = data.at("searchTitle");
-    string statusFilter = data.at("statusFilter");
-    string releaseDateStart = data.at("releaseDateStart");
-    string releaseDateEnd = data.at("releaseDateEnd");
-    vector<string> categoryFilter =
-        data.at("categoryFilter").get<vector<string>>();
-    vector<string> keywordFilter =
-        data.at("keywordFilter").get<vector<string>>();
-    vector<string> tagFilter = data.at("tagFilter").get<vector<string>>();
-
-    vector<ArticleRecord> articles = articlesTable.filterArticles(
-        searchTitle, statusFilter, releaseDateStart, releaseDateEnd,
-        categoryFilter, keywordFilter, tagFilter);
-
-    // внимание, плохой алгоритм
-
-    string sessionId = req.getCookie().at("session_id");
-    Session session = sessionRepository.getSessionData(sessionId);
-
-    if (session.userData.empty()) {
-      // res.setStatus(500); // server error
-      res.setStatus(303); // redirect
-      res.addHeader("Location", "/admin/login_page");
-      return;
-    }
-
-    int userId;
-    try {
-      userId = std::stoi(session.userData);
-    } catch (const runtime_error &e) {
-      // res.setStatus(500); // server error
-      res.setStatus(303); // redirect
-      res.addHeader("Location", "/admin/login_page");
-      return;
-    }
-
-    string htmlPrice;
-    for (const auto &article : articles) {
-      htmlPrice +=
-          (string(R"(<div class="sp-article-card" style="width: 100%">
-                  <img
-                    src=")") +
-           "/images/" + article.getSlug() + string(R"("
-                    alt="Мини-превью"
-                    class="sp-article-preview"
-                  />
-                  <div class="sp-article-info">
-                    <div
-                      style="
-                        display: flex;
-                        flex-direction: column;
-                        justify-content: space-between;
-                        width: 80%;
-                      "
-                    >
-                      <h3 class="sp-article-title" style="width: 100%">)") +
-           article.getTitle() + string(R"(</h3>
-                      <h5 style="opacity: 0.4; width: 100%">Дата и время публикации: )") +
-           article.getReleaseDate().substr(0, article.getReleaseDate().size() -
-                                                  3) +
-           string(R"(</h5>
-                    </div>
-                    <div class="sp-article-buttons">
-                      <div class="sp-article-buttons-row">)") +
-           (canUserEditArticles(userId)
-                ? string(
-                      R"(<button class="sp-btn sp-edit-btn" data-article-id=")") +
-                      to_string(article.getArticleId()) +
-                      string(R"(" onclick="redirectToArticleEditor(this) ">
-                          Редактировать
-                        </button>)")
-                : string(R"()")) +
-           (canUserArchiveArticles(userId)
-                ? string(
-                      R"(<button class="sp-btn sp-archive-btn" data-article-id=")") +
-                      to_string(article.getArticleId()) +
-                      string(R"(" onclick="archiveArticle(this) ">
-                          Архивировать
-                        </button>)")
-                : string(R"()")) +
-           string(R"(</div>
-                      <div class="sp-article-buttons-row">)") +
-           (canUserDeleteArticles(userId)
-                ? string(
-                      R"(<button class="sp-btn sp-delete-btn" data-article-id=")") +
-                      to_string(article.getArticleId()) +
-                      string(R"(" onclick="deleteArticle(this) ">
-                          Удалить
-                        </button>)")
-                : string(R"()")) +
-           string(R"(
-                        <button class="sp-btn sp-public-btn" data-article-id=")") +
-           to_string(article.getArticleId()) +
-           string(R"(" onclick="publishArticle(this) ">
-                          Опубликовать сейчас
-                        </button>
-                      </div>
-                    </div>
-                  </div></div>)"));
-    }
-
-    res.setStatus(200);
-    res.addHeader("Content-Type", "text/html; charset=utf-8");
-    res.setBody(htmlPrice);
-  });
-
-  router.addStaticRoute(
-      "/admin/article_creator_page", [](HttpRequest &req, HttpResponse &res) {
-        if (!isSessionOk(req, res)) {
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        string sessionId = req.getCookie().at("session_id");
-        Session session = sessionRepository.getSessionData(sessionId);
-
-        if (session.userData.empty()) {
-          // res.setStatus(500); // server error
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        int userId;
-        try {
-          userId = std::stoi(session.userData);
-        } catch (const runtime_error &e) {
-          // res.setStatus(500); // server error
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        if (canUserCreateArticles(userId)) {
-          res.setStatus(200);
-          res.setBody(
-              loadFileContent("./views/admin/article_creator/html/index.html"));
-          return;
-        }
-
-        // нет прав
-        res.setStatus(303); // redirect
-        res.addHeader("Location", "/admin/main_page");
-        return;
-      });
-
-  router.addStaticRoute(
-      "/admin/article_creator_handler",
-      [](HttpRequest &req, HttpResponse &res) {
-        if (!isSessionOk(req, res)) {
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        string sessionId = req.getCookie().at("session_id");
-        Session session = sessionRepository.getSessionData(sessionId);
-
-        if (session.userData.empty()) {
-          // res.setStatus(500); // server error
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        int userId;
-        try {
-          userId = std::stoi(session.userData);
-        } catch (const runtime_error &e) {
-          // res.setStatus(500); // server error
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        if (!canUserCreateArticles(userId)) {
-          // res.setStatus(403); // нет прав
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        // save article
-
-        try {
-          const json &json = req.getJsonData();
-
-          // cout << json.dump(4) << endl;
-
-          vector<string> keywords = json.at("keywords").get<vector<string>>();
-          vector<string> categories =
-              json.at("categories").get<vector<string>>();
-          vector<string> tags = json.at("tags").get<vector<string>>();
-
-          const string &slug = json.at("slug");
-          const string imagePath = "./images/" + slug + ".jpg";
-          if (!saveBase64Image(json.at("previewImage"), imagePath)) {
-            throw runtime_error("Ошибка сохранения изображения");
-          }
-
-          const string content = json.at("content").dump();
-
-          articlesTable.insert(json.at("title"), json.at("summary"), content,
-                               json.at("status"), json.at("publishDate"), slug,
-                               json.at("seoTitle"), json.at("seoDescription"),
-                               imagePath);
-
-          ArticleRecord articleRecord = articlesTable.getRecordBySlug(slug);
-
-          if (!keywords.empty())
-            for (const auto &keyword : keywords) {
-              try {
-                keywordsTable.insert(keyword);
-              } catch (const exception &e) {
-              }
-
-              articleKeywordsTable.insert(
-                  articleRecord.getArticleId(),
-                  keywordsTable.searchByKeyword(keyword).at(0).getKeywordId());
-            }
-
-          if (!categories.empty())
-            for (const auto &category : categories) {
-              try {
-                categoriesTable.insert(category, ""); // its empty description
-              } catch (const exception &e) {
-              }
-
-              articleCategoriesTable.insert(
-                  articleRecord.getArticleId(),
-                  categoriesTable.searchByName(category).at(0).getCategoryId());
-            }
-
-          if (!tags.empty())
-            for (const auto &tag : tags) {
-              try {
-                tagsTable.insert(tag);
-              } catch (const exception &e) {
-              }
-
-              articleTagsTable.insert(
-                  articleRecord.getArticleId(),
-                  tagsTable.searchByName(tag).at(0).getTagId());
-            }
-
-        } catch (const exception &e) {
-          cout << e.what() << endl;
-          res.setStatus(500); // server error
-          return;
-        }
-
-        res.setStatus(200);
-        return;
-      });
-
-  router.addDynamicRoute(
-      "/admin/article_editor_page/<article_id>",
-      [](HttpRequest &req, HttpResponse &res) {
-        if (!isSessionOk(req, res)) {
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        string sessionId = req.getCookie().at("session_id");
-        Session session = sessionRepository.getSessionData(sessionId);
-
-        if (session.userData.empty()) {
-          // res.setStatus(500); // server error
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        int userId;
-        try {
-          userId = std::stoi(session.userData);
-        } catch (const runtime_error &e) {
-          // res.setStatus(500); // server error
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        if (canUserEditArticles(userId)) {
-          res.setStatus(200);
-          res.setBody(
-              loadFileContent("./views/admin/article_editor/html/index.html"));
-          return;
-        }
-
-        // нет прав
-        res.setStatus(303); // redirect
-        res.addHeader("Location", "/admin/main_page");
-        return;
-      });
-
-  router.addDynamicRoute(
-      "/admin/get_json_of_article/<article_id>",
-      [](HttpRequest &req, HttpResponse &res) {
-        // if (!isSessionOk(req, res)) {
-        //   res.setStatus(303); // redirect
-        //   res.addHeader("Location", "/admin/login_page");
-        //   return;
-        // }
-
-        try {
-          int article_id = std::stoi(req.getPathParams().at(0));
-          ArticleRecord article = articlesTable.getRecordById(article_id);
-
-          vector<int> keywordIds =
-              articleKeywordsTable.getKeywordIdsForArticle(article_id);
-          vector<int> categoriesIds =
-              articleCategoriesTable.getCategoryIdsForArticle(article_id);
-          vector<int> tagIds = articleTagsTable.getTagIdsForArticle(article_id);
-
-          vector<string> keywords;
-          for (const auto &id : keywordIds) {
-            string keyword = keywordsTable.getRecordById(id).getKeyword();
-            keywords.emplace_back(keyword);
-          }
-
-          vector<string> categories;
-          for (const auto &id : categoriesIds) {
-            string name = categoriesTable.getRecordById(id).getName();
-            categories.emplace_back(name);
-          }
-
-          vector<string> tags;
-          for (const auto &id : tagIds) {
-            string name = tagsTable.getRecordById(id).getName();
-            tags.emplace_back(name);
-          }
-
-          json articleJson = articlesTable.getRecordById(article_id).to_json();
-
-          articleJson["keywords"] = keywords;
-          articleJson["categories"] = categories;
-          articleJson["tags"] = tags;
-
-          res.setStatus(200);
-          res.addHeader("Content-Type", "application/javascript");
-          cout << articleJson.dump(2) << endl;
-          res.setBody(articleJson.dump());
-          return;
-
-        } catch (const exception &e) {
-          cout << e.what() << endl;
-          res.setStatus(500);
-          return;
-        }
-      });
-
-  router.addStaticRoute(
-      "/admin/get_json_of_all_categories",
-      [](HttpRequest &req, HttpResponse &res) {
-        if (!isSessionOk(req, res)) {
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        try {
-          vector<CategoryRecord> categoriesList = categoriesTable.getAll();
-
-          json categoriesJson = json::array();
-
-          for (const auto &category : categoriesList) {
-            json categoryJson;
-            categoryJson["id"] = category.getCategoryId();
-            categoryJson["name"] = category.getName();
-            categoryJson["descripton"] = category.getDescription();
-
-            categoriesJson.push_back(categoryJson);
-          }
-
-          json responseJson;
-          responseJson["categories"] = categoriesJson;
-
-          cout << "result: " << responseJson.dump(4) << endl;
-
-          res.setStatus(200);
-          res.addHeader("Content-Type", "application/javascript");
-          res.setBody(responseJson.dump());
-          return;
-
-        } catch (const exception &e) {
-          res.setStatus(500);
-          return;
-        }
-      });
-
-  router.addStaticRoute(
-      "/admin/get_json_of_all_tags", [](HttpRequest &req, HttpResponse &res) {
-        if (!isSessionOk(req, res)) {
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        try {
-          vector<TagRecord> tagsList = tagsTable.getAll();
-
-          json tagsJson = json::array();
-
-          for (const auto &tag : tagsList) {
-            json tagJson;
-            tagJson["id"] = tag.getTagId();
-            tagJson["name"] = tag.getName();
-
-            tagsJson.push_back(tagJson);
-          }
-
-          json responseJson;
-          responseJson["tags"] = tagsJson;
-
-          res.setStatus(200);
-          res.addHeader("Content-Type", "application/javascript");
-          res.setBody(responseJson.dump());
-          return;
-
-        } catch (const exception &e) {
-          cout << "get_json_of_all_article_categories: " << e.what() << endl;
-          res.setStatus(500);
-          return;
-        }
-      });
-
-  // archive methond
-  router.addDynamicRoute(
-      "/admin/get_all_categories_of_aticle/<article_id>",
-      [](HttpRequest &req, HttpResponse &res) {
-        if (!isSessionOk(req, res)) {
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        try {
-          int article_id = std::stoi(req.getPathParams().at(0));
-          ArticleRecord article = articlesTable.getRecordById(article_id);
-
-          vector<int> tagIds =
-              articleTagsTable.getTagIdsForArticle(article.getArticleId());
-
-          json tags = json::array();
-
-          for (const auto &tagId : tagIds) {
-
-            json tagJson;
-            tagJson["tag_id"] = tagJson;
-            tagJson["name"] = tagsTable.getRecordById(tagJson).getName();
-
-            tags.push_back(tagJson);
-          }
-
-          json responseJson;
-          responseJson["tags"] = tags;
-
-          res.setStatus(200);
-          res.addHeader("Content-Type", "application/javascript");
-          res.setBody(responseJson.dump());
-          return;
-
-        } catch (const exception &e) {
-          cout << "get_json_of_all_article_categories: " << e.what() << endl;
-          res.setStatus(500);
-          return;
-        }
-      });
-
-  // archive methond
-  router.addDynamicRoute(
-      "/admin/get_all_tags_of_aticle/<article_id>",
-      [](HttpRequest &req, HttpResponse &res) {
-        if (!isSessionOk(req, res)) {
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        try {
-          int article_id = std::stoi(req.getPathParams().at(0));
-          ArticleRecord article = articlesTable.getRecordById(article_id);
-
-          vector<int> tagIds =
-              articleTagsTable.getTagIdsForArticle(article.getArticleId());
-
-          json tags = json::array();
-
-          for (const auto &tagId : tagIds) {
-
-            json tagJson;
-            tagJson["tag_id"] = tagJson;
-            tagJson["name"] = tagsTable.getRecordById(tagJson).getName();
-
-            tags.push_back(tagJson);
-          }
-
-          json responseJson;
-          responseJson["tags"] = tags;
-
-          res.setStatus(200);
-          res.addHeader("Content-Type", "application/javascript");
-          res.setBody(responseJson.dump());
-          return;
-
-        } catch (const exception &e) {
-          cout << "get_json_of_all_article_categories: " << e.what() << endl;
-          res.setStatus(500);
-          return;
-        }
-      });
-
-  router.addStaticRoute("/admin/article_editor_handler", [](HttpRequest &req,
-                                                            HttpResponse &res) {
-    if (!isSessionOk(req, res)) {
-      res.setStatus(303); // redirect
-      res.addHeader("Location", "/admin/login_page");
-      return;
-    }
-
-    string sessionId = req.getCookie().at("session_id");
-    Session session = sessionRepository.getSessionData(sessionId);
-
-    if (session.userData.empty()) {
-      // res.setStatus(500); // server error
-      res.setStatus(303); // redirect
-      res.addHeader("Location", "/admin/login_page");
-      return;
-    }
-
-    int userId;
-    try {
-      userId = std::stoi(session.userData);
-    } catch (const runtime_error &e) {
-      // res.setStatus(500); // server error
-      res.setStatus(303); // redirect
-      res.addHeader("Location", "/admin/login_page");
-      return;
-    }
-
-    if (!canUserCreateArticles(userId)) {
-      // res.setStatus(403); // нет прав
-      res.setStatus(303); // redirect
-      res.addHeader("Location", "/admin/login_page");
-      return;
-    }
-
-    try {
-      const json &json = req.getJsonData();
-
-      vector<string> keywords = json.at("keywords").get<vector<string>>();
-      vector<string> categories = json.at("categories").get<vector<string>>();
-      vector<string> tags = json.at("tags").get<vector<string>>();
-
-      const string &slug = json.at("slug");
-      const string imagePath = "./images/" + slug + ".jpg";
-      cout << "new image:" << json.at("previewImage").get<string>() << "]"
-           << endl;
-      if (!json.at("previewImage").get<string>().empty() &&
-          !saveBase64Image(json.at("previewImage"), imagePath)) {
-        // throw runtime_error("Ошибка сохранения изображения");
-      }
-
-      ArticleRecord updatetArticle(articlesTable.getRecordBySlug(slug));
-
-      const string content = json.at("content");
-
-      updatetArticle.setTitle(json.at("title"));
-      updatetArticle.setSummary(json.at("summary"));
-      updatetArticle.setContent(content);
-      updatetArticle.setStatus(json.at("status"));
-      updatetArticle.setReleaseDate(json.at("publishDate"));
-      updatetArticle.setSeoTitle(json.at("seoTitle"));
-      updatetArticle.setSeoDescription(json.at("seoDescription"));
-      // updatetArticle.setPreviewImage(imagePath);
-
-      articlesTable.update(updatetArticle);
-
-      int article_id = updatetArticle.getArticleId();
-
-      if (!keywords.empty()) {
-        vector<int> keywordIds =
-            articleKeywordsTable.getKeywordIdsForArticle(article_id);
-
-        for (const auto &keywordId : keywordIds) {
-          articleKeywordsTable.remove(article_id, keywordId);
-        }
-
-        for (const auto &keyword : keywords) {
-          try {
-            keywordsTable.insert(keyword);
-          } catch (const exception &e) {
-          }
-
-          try {
-            articleKeywordsTable.insert(
-                article_id,
-                keywordsTable.searchByKeyword(keyword).at(0).getKeywordId());
-          } catch (const exception &e) {
-          }
-        }
-      }
-
-      if (!categories.empty()) {
-        vector<int> categoryIds =
-            articleCategoriesTable.getCategoryIdsForArticle(article_id);
-
-        for (const auto &categoryId : categoryIds) {
-          articleCategoriesTable.remove(article_id, categoryId);
-        }
-
-        for (const auto &category : categories) {
-          try {
-            categoriesTable.insert(category, ""); // its empty description
-          } catch (const exception &e) {
-          }
-
-          try {
-            articleCategoriesTable.insert(
-                article_id,
-                categoriesTable.searchByName(category).at(0).getCategoryId());
-          } catch (const exception &e) {
-          }
-        }
-      }
-
-      if (!tags.empty()) {
-        vector<int> tagIds = articleTagsTable.getTagIdsForArticle(article_id);
-
-        for (const auto &tagId : tagIds) {
-          articleTagsTable.remove(article_id, tagId);
-        }
-
-        for (const auto &tag : tags) {
-          try {
-            tagsTable.insert(tag);
-          } catch (const exception &e) {
-          }
-
-          try {
-            articleTagsTable.insert(
-                article_id, tagsTable.searchByName(tag).at(0).getTagId());
-          } catch (const exception &e) {
-          }
-        }
-      }
-    } catch (const exception &e) {
-      cout << e.what() << endl;
-      res.setStatus(500); // server error
-      return;
-    }
-
-    res.setStatus(200);
-    return;
-  });
-
-  router.addDynamicRoute(
-      "/admin/article_editor_page/publish/<article_id>",
-      [](HttpRequest &req, HttpResponse &res) {
-        if (!isSessionOk(req, res)) {
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        try {
-          if (!articlesTable.publish(std::stoi(req.getPathParams().at(0)))) {
-            res.setStatus(500);
-            return;
-          }
-          res.setStatus(200);
-          return;
-        } catch (const exception &e) {
-          cout << e.what() << endl;
-          res.setStatus(500);
-          return;
-        }
-      });
-
-  router.addDynamicRoute(
-      "/admin/article_editor_page/delete/<article_id>",
-      [](HttpRequest &req, HttpResponse &res) {
-        if (!isSessionOk(req, res)) {
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        try {
-          if (!articlesTable.remove(std::stoi(req.getPathParams().at(0)))) {
-            res.setStatus(500);
-            return;
-          }
-          res.setStatus(200);
-          return;
-        } catch (const exception &e) {
-          cout << e.what() << endl;
-          res.setStatus(500);
-          return;
-        }
-      });
-
-  router.addDynamicRoute(
-      "/admin/article_editor_page/archive/<article_id>",
-      [](HttpRequest &req, HttpResponse &res) {
-        if (!isSessionOk(req, res)) {
-          res.setStatus(303); // redirect
-          res.addHeader("Location", "/admin/login_page");
-          return;
-        }
-
-        try {
-          if (!articlesTable.archive(std::stoi(req.getPathParams().at(0)))) {
-            res.setStatus(500);
-            return;
-          }
-          res.setStatus(200);
-          return;
-        } catch (const exception &e) {
-          cout << e.what() << endl;
-          res.setStatus(500);
-          return;
-        }
-      });
-
-  // data getters
-
-  router.addStaticRoute("/get_filter_data", [](HttpRequest &req,
-                                               HttpResponse &res) {
-    vector<CategoryRecord> categories = categoriesTable.getAll();
-    vector<KeywordRecord> keywords = keywordsTable.getAll();
-    vector<TagRecord> tags = tagsTable.getAll();
-
-    json json;
-
-    json["categories"] = json::array();
-    for (const auto &category : categories) {
-      json["categories"].push_back(
-          {{"id", category.getCategoryId()},
-           {"name", category.getName()},
-           {"description", category.getDescription()}});
-    }
-
-    json["keywords"] = json::array();
-    for (const auto &keyword : keywords) {
-      json["keywords"].push_back(
-          {{"id", keyword.getKeyword()}, {"keyword", keyword.getKeyword()}});
-    }
-
-    json["tags"] = json::array();
-    for (const auto &tag : tags) {
-      json["tags"].push_back({{"id", tag.getTagId()}, {"name", tag.getName()}});
-    }
-
-    res.setStatus(200);
-    res.addHeader("Content-Type", "application/json; charset=utf-8");
-    res.setBody(json.dump(2));
-  });
-
-  router.addDynamicRoute(
-      "/images/<slug>", [](HttpRequest &req, HttpResponse &res) {
-        try {
-          string slug = req.getPathParams().at(0);
-          res.setStatus(200);
-          res.addHeader("Content-Type", "image/jpeg");
-          res.setBody(loadFileContent("./images/" + slug + ".jpg"));
-        } catch (const exception &e) {
-          cout << e.what() << endl;
-          res.setStatus(404);
-        }
-      });
-
-  router.addStaticRoute("/admin/article_creator/css/styles.css",
-                        [](HttpRequest &req, HttpResponse &res) {
-                          res.setStatus(200);
-                          res.addHeader("Content-Type", "text/css");
-
-                          res.setBody(loadFileContent(
-                              "./views/admin/article_creator/css/styles.css"));
-                        });
-
-  router.addStaticRoute(
-      "/admin/article_creator/js/functions.js",
-      [](HttpRequest &request, HttpResponse &response) {
-        response.setStatus(200);
-        response.addHeader("Content-Type", "application/javascript");
-
-        response.setBody(
-            loadFileContent("./views/admin/article_creator/js/functions.js"));
-      });
-
-  router.addStaticRoute(
-      "/admin/article_creator/js/quill_settings.js",
-      [](HttpRequest &request, HttpResponse &response) {
-        response.setStatus(200);
-        response.addHeader("Content-Type", "application/javascript");
-
-        response.setBody(loadFileContent("./views/admin/article_creator/"
-                                         "js/quill_settings.js"));
-      });
-
-  router.addStaticRoute(
-      "/admin/article_creator/js/handlers.js",
-      [](HttpRequest &request, HttpResponse &response) {
-        response.setStatus(200);
-        response.addHeader("Content-Type", "application/javascript");
-
-        response.setBody(
-            loadFileContent("./views/admin/article_creator/js/handlers.js"));
-      });
-
-  router.addStaticRoute("/admin/article_editor/css/styles.css",
-                        [](HttpRequest &req, HttpResponse &res) {
-                          res.setStatus(200);
-                          res.addHeader("Content-Type", "text/css");
-
-                          res.setBody(loadFileContent(
-                              "./views/admin/article_editor/css/styles.css"));
-                        });
-
-  router.addStaticRoute(
-      "/admin/article_editor/js/functions.js",
-      [](HttpRequest &request, HttpResponse &response) {
-        response.setStatus(200);
-        response.addHeader("Content-Type", "application/javascript");
-
-        response.setBody(
-            loadFileContent("./views/admin/article_editor/js/functions.js"));
-      });
-
-  router.addStaticRoute(
-      "/admin/article_editor/js/quill_settings.js",
-      [](HttpRequest &request, HttpResponse &response) {
-        response.setStatus(200);
-        response.addHeader("Content-Type", "application/javascript");
-
-        response.setBody(loadFileContent("./views/admin/article_editor/"
-                                         "js/quill_settings.js"));
-      });
-
-  router.addStaticRoute(
-      "/admin/article_editor/js/handlers.js",
-      [](HttpRequest &request, HttpResponse &response) {
-        response.setStatus(200);
-        response.addHeader("Content-Type", "application/javascript");
-
-        response.setBody(
-            loadFileContent("./views/admin/article_editor/js/handlers.js"));
-      });
-
-  router.addStaticRoute("/admin/login_page/css/style.css",
-                        [](HttpRequest &request, HttpResponse &response) {
-                          response.setStatus(200);
-                          response.addHeader("Content-Type", "text/css");
-
-                          response.setBody(loadFileContent(
-                              "./views/admin/login_page/css/style.css"));
-                        });
-
-  router.addStaticRoute("/admin/main_page/css/styles.css",
-                        [](HttpRequest &request, HttpResponse &response) {
-                          response.setStatus(200);
-                          response.addHeader("Content-Type", "text/css");
-
-                          response.setBody(loadFileContent(
-                              "./views/admin/main_page/css/styles.css"));
-                        });
-
-  router.addStaticRoute(
-      "/admin/main_page/css/fp.css",
-      [](HttpRequest &request, HttpResponse &response) {
-        response.setStatus(200);
-        response.addHeader("Content-Type", "text/css");
-
-        response.setBody(loadFileContent("./views/admin/main_page/css/fp.css"));
-      });
-
-  router.addStaticRoute(
-      "/admin/main_page/css/sp.css",
-      [](HttpRequest &request, HttpResponse &response) {
-        response.setStatus(200);
-        response.addHeader("Content-Type", "text/css");
-
-        response.setBody(loadFileContent("./views/admin/main_page/css/sp.css"));
-      });
-
-  router.addStaticRoute(
-      "/admin/main_page/js/functions.js",
-      [](HttpRequest &request, HttpResponse &response) {
-        response.setStatus(200);
-        response.addHeader("Content-Type", "application/javascript");
-
-        response.setBody(
-            loadFileContent("./views/admin/main_page/js/functions.js"));
-      });
-
-  router.addStaticRoute(
-      "/admin/main_page/js/quill_settings.js",
-      [](HttpRequest &request, HttpResponse &response) {
-        response.setStatus(200);
-        response.addHeader("Content-Type", "application/javascript");
-
-        response.setBody(
-            loadFileContent("./views/admin/main_page/js/quill_settings.js"));
-      });
-
-  router.addStaticRoute(
-      "/admin/main_page/js/handlers.js",
-      [](HttpRequest &request, HttpResponse &response) {
-        response.setStatus(200);
-        response.addHeader("Content-Type", "application/javascript");
-
-        response.setBody(
-            loadFileContent("./views/admin/main_page/js/handlers.js"));
-      });
-
-  router.addStaticRoute(
-      "/admin/main_page/js/fp.js",
-      [](HttpRequest &request, HttpResponse &response) {
-        response.setStatus(200);
-        response.addHeader("Content-Type", "application/javascript");
-
-        response.setBody(loadFileContent("./views/admin/main_page/js/fp.js"));
-      });
 }
 
 // // router.addDynamicRoute("/company/<companyid>/user/<userid>",
