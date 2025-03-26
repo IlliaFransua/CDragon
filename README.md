@@ -13,6 +13,16 @@ A web framework developed from the ground up in C and C++ to efficiently manage 
 - Session support for user data management
 - Unit tests using Google Test to ensure stability
 
+## Technology Stack
+- **Programming Languages:** C, C++
+- **Build Tools:** CMake, Clang
+- **Databases:** MySQL, PostgreSQL
+- **Version Control:** Git, GitHub
+- **Testing:** Google Test
+
+## Build and Installation
+Detailed build instructions can be found in [CDragon/README.md](https://github.com/IlliaFransua/CDragon/blob/main/CDragon/README.md).
+
 # SRF - News Website
 
 A fully functional news website built using the CDragon web framework. The backend leverages CDragon for handling HTTP/HTTPS requests, dynamic routing, and database interactions. The frontend is designed with HTML, CSS, and JavaScript to provide a seamless user experience.
@@ -23,16 +33,11 @@ A fully functional news website built using the CDragon web framework. The backe
 - Article constructor with text formatting and multimedia embedding
 - API integration for smooth content management
 
-## Technology Stack
-- **Programming Languages:** C, C++, JavaScript
-- **Build Tools:** CMake, Clang
-- **Databases:** MySQL, PostgreSQL
+## Technology Stack (SRF)
+- **Backend:** CDragon (C, C++)
+- **Frontend:** HTML, CSS, JavaScript
 - **Version Control:** Git, GitHub
-- **Frontend:** HTML, CSS
-- **Testing:** Google Test
-
-## Build and Installation
-Detailed build instructions can be found in [CDragon/README.md](https://github.com/IlliaFransua/CDragon/blob/main/CDragon/README.md).
+- **Database:** MySQL
 
 ## Video Demonstration
 [Watch the project in action](https://github.com/IlliaFransua/CDragon).
