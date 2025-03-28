@@ -27,6 +27,9 @@ Detailed build instructions can be found in [CDragon/README.md](https://github.c
 
 A fully functional news website built using the CDragon web framework. The backend leverages CDragon for handling HTTP/HTTPS requests, dynamic routing, and database interactions. The frontend is designed with HTML, CSS, and JavaScript.
 
+## Video Demonstration
+[![Watch the project in action](https://img.youtube.com/vi/BTus-owak1A/0.jpg)](https://www.youtube.com/watch?v=BTus-owak1A)
+
 ## Features
 - Fully responsive design with a clean and modern UI
 - Admin panel for managing articles (search, filter, create, edit, archive, delete)
@@ -38,7 +41,4 @@ A fully functional news website built using the CDragon web framework. The backe
 - **Frontend:** HTML, CSS, JavaScript
 - **Version Control:** Git, GitHub
 - **Database:** MySQL
-
-## Video Demonstration
-[![Watch the project in action](https://img.youtube.com/vi/BTus-owak1A/0.jpg)](https://www.youtube.com/watch?v=BTus-owak1A)
 
