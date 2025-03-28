@@ -40,4 +40,5 @@ A fully functional news website built using the CDragon web framework. The backe
 - **Database:** MySQL
 
 ## Video Demonstration
-[Watch the project in action](https://github.com/IlliaFransua/CDragon).
+[![Watch the project in action](https://img.youtube.com/vi/BTus-owak1A/0.jpg)](https://www.youtube.com/watch?v=BTus-owak1A)
+
