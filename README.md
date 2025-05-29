@@ -1,44 +1,44 @@
-# CDragon
+# CDragon Web Framework
 
-A web framework developed from the ground up in C and C++ to efficiently manage HTTP/HTTPS requests, routing, and database interactions, while emphasizing speed and data security. This high-performance framework features native support for web protocols, dynamic routing, secure static file serving, and integrated handling of MySQL/PostgreSQL databases.
+CDragon is a fast and lightweight web framework built from scratch in C and C++. It’s designed to efficiently handle HTTP requests, routing, file serving, and database interactions with a focus on performance and low-level control.
 
-## Features
-- High-performance C-based network core with HTTP/HTTPS support
-- Flexible routing with dynamic and static URLs, including parameters
-- Efficient request handling and response generation
-- Protection mechanisms for static files
-- Built-in file upload and transfer system (HTML, CSS, JS, images)
-- Optimized templating engine with variable and loop support
-- MySQL and PostgreSQL integration for data storage and management
-- Session support for user data management
+## Key Features
+- High-speed HTTP server core written in C
+- Dynamic routing with support for parameters and static paths
+- Efficient request/response processing
+- Secure static file delivery
+- Built-in system for file uploads (HTML, CSS, JS, images)
+- Lightweight templating engine with variable and loop support
+- MySQL database integration
+- Session management for user data
 - Unit tests using Google Test
 
 ## Technology Stack
 - **Programming Languages:** C, C++
-- **Build Tools:** CMake, Clang
-- **Databases:** MySQL, PostgreSQL
+- **Build Tools:** CMake
+- **Databases:** MySQL
 - **Version Control:** Git, GitHub
 - **Testing:** Google Test
 
 ## Build and Installation
-Detailed build instructions can be found in [CDragon/README.md](https://github.com/IlliaFransua/CDragon/blob/main/CDragon/README.md).
+For setup instructions, see the [CDragon/README.md](https://github.com/IlliaFransua/CDragon/blob/main/CDragon/README.md).
 
-# SRF - News Website
+# SRF – News Platform Demo
 
-A fully functional news website built using the CDragon web framework. The backend leverages CDragon for handling HTTP/HTTPS requests, dynamic routing, and database interactions. The frontend is designed with HTML, CSS, and JavaScript.
+SRF is a demo news website powered by the CDragon framework. It showcases dynamic routing, database interaction, and admin tooling — all built with performance in mind.
 
-## Video Demonstration
+## Demo Video
 [![Watch the project in action](https://img.youtube.com/vi/BTus-owak1A/0.jpg)](https://www.youtube.com/watch?v=BTus-owak1A)
 
-## Features
-- Fully responsive design with a clean and modern UI
-- Admin panel for managing articles (search, filter, create, edit, archive, delete)
-- Article constructor with text formatting and multimedia embedding
-- API integration for smooth content management
+## Core Features
+- Responsive UI with modern layout
+- Admin panel to manage articles (search, filter, create, edit, delete)
+- Rich-text editor with media support
+- API-based content operations
 
 ## Technology Stack (SRF)
 - **Backend:** CDragon (C, C++)
-- **Frontend:** HTML, CSS, JavaScript
+- **Frontend:** JavaScript, HTML, CSS
 - **Version Control:** Git, GitHub
 - **Database:** MySQL
 
